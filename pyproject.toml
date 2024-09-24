@@ -1,17 +1,12 @@
 [project]
 name = "llm-openrouter"
-version = "0.2"
+version = "0.3"
 description = "LLM plugin for models hosted by OpenRouter"
 readme = "README.md"
-authors = [{name = "Simon Willison"}]
-license = {text = "Apache-2.0"}
-classifiers = [
-    "License :: OSI Approved :: Apache Software License"
-]
-dependencies = [
-    "llm>=0.8",
-    "httpx"
-]
+authors = [{ name = "Simon Willison" }]
+license = { text = "Apache-2.0" }
+classifiers = ["License :: OSI Approved :: Apache Software License"]
+dependencies = ["llm>=0.8", "httpx"]
 
 [project.urls]
 Homepage = "https://github.com/simonw/llm-openrouter"

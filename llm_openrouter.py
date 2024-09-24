@@ -1,5 +1,5 @@
 import llm
-from llm.default_plugins.openai_models import Chat
+from llm.default_plugins.openai_models import Chat, Completion
 from pathlib import Path
 import json
 import time
@@ -18,6 +18,16 @@ class OpenRouterChat(Chat):
     needs_key = "openrouter"
     key_env_var = "OPENROUTER_KEY"
 
+    class Options(llm.Options):
+        pass
+
+    def __str__(self):
+        return "OpenRouter: {}".format(self.model_id)
+
+class OpenRouterCompletion(Completion):
+    needs_key = "openrouter"
+    key_env_var = "OPENROUTER_KEY"
+
     def __str__(self):
         return "OpenRouter: {}".format(self.model_id)
 
@@ -29,14 +39,22 @@ def register_models(register):
     if not key:
         return
     for model_definition in get_openrouter_models():
-        register(
-            OpenRouterChat(
-                model_id="openrouter/{}".format(model_definition["id"]),
-                model_name=model_definition["id"],
-                api_base="https://openrouter.ai/api/v1",
-                headers={"HTTP-Referer": "https://llm.datasette.io/", "X-Title": "LLM"},
-            )
+        chat_model = OpenRouterChat(
+            model_id="openrouter/{}".format(model_definition["id"]),
+            model_name=model_definition["id"],
+            api_base="https://openrouter.ai/api/v1",
+            headers={"HTTP-Referer": "https://llm.datasette.io/", "X-Title": "LLM"},
         )
+        completion_model = OpenRouterCompletion(
+            model_id="openroutercompletion/{}".format(model_definition["id"]),
+            model_name=model_definition["id"],
+            api_base="https://openrouter.ai/api/v1",
+            headers={"HTTP-Referer": "https://llm.datasette.io/", "X-Title": "LLM"},
+        )
+        register(chat_model)
+        register(completion_model)
+
+
 
 
 class DownloadError(Exception):
