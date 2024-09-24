@@ -18,9 +18,6 @@ class OpenRouterChat(Chat):
     needs_key = "openrouter"
     key_env_var = "OPENROUTER_KEY"
 
-    class Options(llm.Options):
-        pass
-
     def __str__(self):
         return "OpenRouter: {}".format(self.model_id)
 
