@@ -5,7 +5,7 @@ import json
 import time
 import httpx
 from typing import Optional
-from pydantic import Field
+from pydantic import Field, ValidationError, field_validator
 
 def get_openrouter_models():
     return fetch_cached_json(
@@ -14,15 +14,45 @@ def get_openrouter_models():
         cache_timeout=3600,
     )["data"]
 
+def ensure_prefills_dir():
+    """Ensure the prefills directory exists"""
+    path = llm.user_dir() / "prefills"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+def load_prefill(name: str) -> Optional[str]:
+    """Load a prefill from the prefills directory"""
+    path = llm.user_dir() / "prefills" / f"{name}.txt"
+    if path.exists():
+        return path.read_text().strip()
+    return None
+
 class OpenRouterChat(Chat):
     needs_key = "openrouter"
     key_env_var = "OPENROUTER_KEY"
 
     class Options(Chat.Options):
         prefill: Optional[str] = Field(
-            description="Initial text for the model's response. Uses OpenRouter's Assistant Prefill feature.",
+            description=(
+                "Initial text for the model's response. Use '--pre name' to load from a "
+                "saved prefill, or provide the text directly."
+            ),
             default=None
         )
+        pre: Optional[str] = Field(
+            description="Load prefill from a saved file in the prefills directory",
+            default=None
+        )
+
+        @field_validator("prefill", mode="before")
+        def validate_prefill(cls, v, values):
+            if "pre" in values.data and values.data["pre"]:
+                # Load from file
+                prefill = load_prefill(values.data["pre"])
+                if prefill is None:
+                    raise ValueError(f"No prefill file found: {values.data['pre']}")
+                return prefill
+            return v
 
     def __str__(self):
         return "OpenRouter: {}".format(self.model_id)
@@ -32,8 +62,8 @@ class OpenRouterChat(Chat):
         response._prompt_json = {"messages": messages}
         kwargs = self.build_kwargs(prompt)
 
-        # Remove prefill from kwargs since we handle it in messages
-        kwargs.pop('prefill', None)
+        # Remove 'pre' from kwargs since we handle it in messages
+        kwargs.pop('pre', None)
 
         client = self.get_client()
 
@@ -69,11 +99,13 @@ class OpenRouterChat(Chat):
         messages.append({"role": "user", "content": prompt.prompt})
 
         # Add prefill if specified
-        if prompt.options.prefill:
-            messages.append({
-                "role": "assistant",
-                "content": prompt.options.prefill
-            })
+        if prompt.options.pre:
+            prefill = load_prefill(prompt.options.pre)
+            if prefill:
+                messages.append({
+                    "role": "assistant",
+                    "content": prefill
+                })
 
         return messages
 
@@ -89,6 +121,9 @@ def register_models(register):
     key = llm.get_key("", "openrouter", "LLM_OPENROUTER_KEY")
     if not key:
         return
+
+    # Ensure prefills directory exists
+    ensure_prefills_dir()
 
     models = get_openrouter_models()
     for model_definition in models:
