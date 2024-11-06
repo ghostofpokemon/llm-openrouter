@@ -4,6 +4,8 @@ from pathlib import Path
 import json
 import time
 import httpx
+from typing import Optional
+from pydantic import Field
 
 def get_openrouter_models():
     return fetch_cached_json(
@@ -15,8 +17,65 @@ def get_openrouter_models():
 class OpenRouterChat(Chat):
     needs_key = "openrouter"
     key_env_var = "OPENROUTER_KEY"
+
+    class Options(Chat.Options):
+        prefill: Optional[str] = Field(
+            description="Initial text for the model's response. Uses OpenRouter's Assistant Prefill feature.",
+            default=None
+        )
+
     def __str__(self):
         return "OpenRouter: {}".format(self.model_id)
+
+    def execute(self, prompt, stream, response, conversation):
+        messages = self._build_messages(conversation, prompt)
+        response._prompt_json = {"messages": messages}
+        kwargs = self.build_kwargs(prompt)
+
+        # Remove prefill from kwargs since we handle it in messages
+        kwargs.pop('prefill', None)
+
+        client = self.get_client()
+
+        try:
+            completion = client.chat.completions.create(
+                model=self.model_name,
+                messages=messages,
+                stream=stream,
+                **kwargs,
+            )
+
+            for chunk in completion:
+                content = chunk.choices[0].delta.content
+                if content is not None:
+                    yield content
+
+            response.response_json = {"content": "".join(response._chunks)}
+        except Exception as e:
+            raise llm.ModelError(f"OpenRouter API error: {str(e)}")
+
+    def _build_messages(self, conversation, prompt):
+        """Build the messages list for the API call."""
+        messages = []
+        if conversation:
+            for prev_response in conversation.responses:
+                messages.append({"role": "user", "content": prev_response.prompt.prompt})
+                messages.append({"role": "assistant", "content": prev_response.text()})
+
+        # Add system message if provided
+        if prompt.system:
+            messages.append({"role": "system", "content": prompt.system})
+
+        messages.append({"role": "user", "content": prompt.prompt})
+
+        # Add prefill if specified
+        if prompt.options.prefill:
+            messages.append({
+                "role": "assistant",
+                "content": prompt.options.prefill
+            })
+
+        return messages
 
 class OpenRouterCompletion(Completion):
     needs_key = "openrouter"
