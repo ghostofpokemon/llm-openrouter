@@ -96,11 +96,19 @@ class OpenRouterChat(Chat):
 
         return messages
 
+    def build_kwargs(self, prompt):
+        # Return any additional kwargs needed for the API call
+        return {}
+
 class OpenRouterCompletion(Completion):
     needs_key = "openrouter"
     key_env_var = "OPENROUTER_KEY"
     def __str__(self):
         return "OpenRouter: {}".format(self.model_id)
+
+    def build_kwargs(self, prompt):
+        # Return any additional kwargs needed for the API call
+        return {}
 
 @llm.hookimpl
 def register_models(register):
