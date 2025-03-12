@@ -34,11 +34,15 @@ class OpenRouterChat(Chat):
             description="Load prefill from a saved file in the prefills directory",
             default=None
         )
+        online: bool = Field(
+            description="Enable web browsing capability via OpenRouter",
+            default=False
+        )
 
     def __str__(self):
         return "OpenRouter: {}".format(self.model_id)
 
-    def execute(self, prompt, stream, response, conversation):
+    def execute(self, prompt, stream, response, conversation, key=None):
         messages = self._build_messages(conversation, prompt)
         response._prompt_json = {"messages": messages}
         kwargs = self.build_kwargs(prompt)
@@ -46,12 +50,18 @@ class OpenRouterChat(Chat):
         # Remove prefill and pre from kwargs since we handle them in messages
         kwargs.pop('prefill', None)
         kwargs.pop('pre', None)
+        kwargs.pop('online', None)  # Remove online from kwargs
 
-        client = self.get_client()
+        client = self.get_client(key)
+
+        # Append :online to model name if online capability is enabled
+        model_name = self.model_name
+        if prompt.options.online:
+            model_name = f"{model_name}:online"
 
         try:
             completion = client.chat.completions.create(
-                model=self.model_name,
+                model=model_name,
                 messages=messages,
                 stream=stream,
                 **kwargs,
