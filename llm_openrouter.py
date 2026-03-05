@@ -274,7 +274,8 @@ def fetch_cached_json(url, path, cache_timeout, **kwargs):
             with open(path, "r") as file:
                 return json.load(file)
         else:
-            # If not, return an empty dictionary containing data
+            with open(path, "w") as file:
+                json.dump({"data": []}, file)
             return {"data": []}
 
 
