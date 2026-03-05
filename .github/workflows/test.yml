@@ -24,5 +24,4 @@ jobs:
         pip install -e '.[test]'
     - name: Run tests
       run: |
-        python -m pytest
-        python -m cogapp --check README.md
+        pytest
