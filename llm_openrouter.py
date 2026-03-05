@@ -248,7 +248,7 @@ def register_models(register):
 class DownloadError(Exception):
     pass
 
-def fetch_cached_json(url, path, cache_timeout):
+def fetch_cached_json(url, path, cache_timeout, **kwargs):
     path = Path(path)
     # Create directories if not exist
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -262,22 +262,20 @@ def fetch_cached_json(url, path, cache_timeout):
                 return json.load(file)
     # Try to download the data
     try:
-        response = httpx.get(url, follow_redirects=True)
+        response = httpx.get(url, follow_redirects=True, timeout=1.5, **kwargs)
         response.raise_for_status()  # This will raise an HTTPError if the request fails
         # If successful, write to the file
         with open(path, "w") as file:
             json.dump(response.json(), file)
         return response.json()
-    except httpx.HTTPError:
+    except Exception:
         # If there's an existing file, load it
         if path.is_file():
             with open(path, "r") as file:
                 return json.load(file)
         else:
-            # If not, raise an error
-            raise DownloadError(
-                f"Failed to download data and no cache is available at {path}"
-            )
+            # If not, return an empty dictionary containing data
+            return {"data": []}
 
 
 @llm.hookimpl
@@ -380,3 +378,4 @@ def format_pricing(pricing_dict):
         if formatted_price:
             formatted_parts.append(formatted_price)
     return ", ".join(formatted_parts)
+
